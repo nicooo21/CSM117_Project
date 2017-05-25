@@ -31,6 +31,7 @@ totalOptions = [switchOptions, sliderOptions, pressOptions]
 switchVSlider = [switchOptions, verticalSlider]
 switchPress = [switchOptions, pressOptions]
 
+"""
 ### Grid Selections ###
 
 # Initialization Notation #
@@ -66,27 +67,28 @@ switchPress = [switchOptions, pressOptions]
 
 # Press # - 2 
 # 0 - Flat - 'f'
-
+"""
 
 
 class Server(LineReceiver):
-
-    delimiter = '\n'
-
-    # Name Combinations
-    switchNames = ['a', 'b', 'c', 'd', 'e', 'f']
-    sliderNames = ['a', 'b', 'c', 'd', 'e', 'f']
-    pressNames = ['a', 'b', 'c', 'd', 'e', 'f']
-    optionNames = [switchNames, sliderNames, pressNames]
-    namesSwitchVSlider = [switchNames, sliderNames]
-    namesSwitchPress = [switchNames, pressNames]
-
 
     def __init__(self, factory):
 
         self.factory = factory
         self.numPlayer = self.factory.connections
         self.factory.players.append(self)
+        self.delimiter = '\n'
+
+        # Name Combinations
+        self.switchNames = ['a', 'b', 'c', 'd', 'e', 'f']
+        self.sliderNames = ['a', 'b', 'c', 'd', 'e', 'f']
+        self.pressNames = ['a', 'b', 'c', 'd', 'e', 'f']
+        self.optionNames = [self.switchNames, self.sliderNames, self.pressNames]
+        self.switchVSliderNames = [self.switchNames, self.sliderNames]
+        self.switchPressNames = [self.switchNames, self.pressNames]
+
+
+
     def randomNumber(self, length):
         return randint(0, length - 1)
 
@@ -101,10 +103,10 @@ class Server(LineReceiver):
     def initializeGrid(self):
         # Randomize Grid (Either one or zero)
         self.gridNumber = self.randomNumber(gridAmount)
-
         print ("Grid Layout: " + str(self.gridNumber) + " For Player " + str(self.numPlayer))
-        
+
         # Randomize Buttons Depending on Grid
+        # Grid 1 Layout
         if not self.gridNumber:
             # Initialize Button 0 - Switch or Press + Name
 
@@ -112,10 +114,10 @@ class Server(LineReceiver):
             buttonOption = switchPress[randNum]
 
             initializationString = (buttonOption[self.randomNumber(len(buttonOption))]
-            + ':' + self.randomNameChar(self.namesSwitchPress[randNum]) + '?')
+            + ':' + self.randomNameChar(self.switchPressNames[randNum]) + '?')
             print(initializationString)
 
-            # Initialize Button 1 - Horizontal Slider + Name 
+            # Initialize Button 1 - Horizontal Slider + Name
 
             initializationString += horizontalSlider + ':' + self.randomNameChar(self.sliderNames) + '?'
             print(initializationString)
@@ -127,14 +129,47 @@ class Server(LineReceiver):
             + ':' + self.randomNameChar(self.optionNames[randNum]) + '?')
             print (initializationString)
 
-            # Initialize Button 3 - Switch or Vertical Slider 
+            # Initialize Button 3 - Switch or Vertical Slider
 
             randNum = self.randomNumber(switchVSliderAmount)
             buttonOption = switchVSlider[randNum]
             initializationString += (buttonOption[self.randomNumber(len(buttonOption))]
-            + ':' + self.randomNameChar(self.namesSwitchVSlider[randNum]))
+            + ':' + self.randomNameChar(self.switchVSliderNames[randNum]))
 
             print("Final String for Grid 0: " + initializationString + " For Player " + str(self.numPlayer))
+
+        # Grid 2 Layout
+        else:
+
+            # Button 0 - Horizontal Slider Only
+
+            initializationString = (horizontalSlider + ':' + self.randomNameChar(self.sliderNames)) + '?'
+            print(initializationString)
+
+            # Button 1 - Vertical Slider or Switch
+
+            randNum = self.randomNumber(switchVSliderAmount)
+            buttonOption = switchVSlider[randNum]
+            initializationString += (buttonOption[self.randomNumber(len(buttonOption))]
+            + ':' + self.randomNameChar(self.switchVSliderNames[randNum])+ '?')
+            print(initializationString)
+
+            # Button 2 - Switch Only
+
+            initializationString += (switchOptions[self.randomNumber(switchAmount)]
+                                     + ':' + self.randomNameChar(self.switchNames) + '?')
+            print(initializationString)
+
+            # Button 3 - Press Only
+
+            initializationString += (pressOptions + ':' + self.randomNameChar(self.pressNames))
+            print(initializationString)
+
+        print("Switch: " + str(self.switchNames))
+        print("Slider: " + str(self.sliderNames))
+        print("Press: " + str(self.pressNames))
+
+
 
     def connectionMade(self):
 
@@ -145,10 +180,11 @@ class Server(LineReceiver):
         # Initialize a grid from grid array, use random function
 
     def connectionLost(self, reason):
-        
-        self.factory.connections-=1
+
+        self.factory.connections -= 1
         self.factory.players.remove(self)
-        print("The connection for player: " + str(self.numPlayer) + " was lost. " + str(self.factory.connections) + " are left")
+        print("The connection for player: " + str(self.numPlayer) + " was lost. "
+              + str(self.factory.connections) + " are left")
 
     def lineReceived(self, line):
 
@@ -180,7 +216,7 @@ class ServerFactory(Factory):
             print("Number of Connections: " + str(self.connections))
 
         else:
-            print("2 Players Max!")
+            print("2 Players Max! Not allowing anymore connections")
 
         return Server(self)
 
