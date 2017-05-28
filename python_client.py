@@ -2,10 +2,8 @@ import socket
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.connect(('127.0.0.1', 6789))
-msg = "Hey!\n"
-print("Printing: " + msg)
-client_socket.sendall(msg)
+print("Connecting to Server...")
 while True:
-    pass
-    #msg = client_socket.recv(1024)
-    #print(msg)
+    msg = client_socket.recv(1024)
+    client_socket.sendall('hey\n')
+    print(msg)
