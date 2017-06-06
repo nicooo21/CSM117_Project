@@ -9,7 +9,7 @@ from random import randint
 
 # TCP Connection Information
 portNumber = 6789
-ipAddress = '127.0.0.1'
+ipAddress = ''
 numQueues = 2
 
 # Initialization Variables
@@ -85,10 +85,11 @@ class Server(LineReceiver):
     def __init__(self, factory):
 
         self.factory = factory
-        self.numPlayer = self.factory.connections
         self.factory.players.append(self)
         self.delimiter = '\n'
         self.state = 'startGame'
+        self.readyStart = 0
+        self.numPlayer = -1
 
     def randomNumber(self, length):
         return randint(0, length - 1)
@@ -111,20 +112,21 @@ class Server(LineReceiver):
 
     def initializeGrid(self):
         # Randomize Grid (Either one or zero)
-        self.gridNumber = self.randomNumber(gridAmount)
+        self.gridNumber = "1"
         print ("Grid Layout: " + str(self.gridNumber) + " For Player " + str(self.numPlayer))
+        self.initializationString = (str(self.numPlayer) + '&' + str(self.gridNumber) + '%')
         # Randomize Buttons Depending on Grid
         # Grid 1 Layout
         if self.gridNumber == 0:
             # Initialize Button 0 - Switch or Press + Name
-            buttonChar, nameChar = self.randMultOption(switchPressAmount, switchPress, switchPressNames)
+            nameChar = self.randomNameChar(pressNames)
+            self.initializationString += pressOptions + ':' + nameChar + '?'
 
-            self.initializationString = (buttonChar + ':' + nameChar + '?')
             print(self.initializationString)
             # Initialize Button 1 - Horizontal Slider + Name
 
-            nameChar = self.randomNameChar(sliderNames)
-            self.initializationString += horizontalSlider + ':' + nameChar + '?'
+            nameChar = self.randomNameChar(switchNames)
+            self.initializationString += 't' + ':' + nameChar + '?'
             print(self.initializationString)
 
             # Initialize Button 2 - Anything + Name
@@ -146,7 +148,7 @@ class Server(LineReceiver):
             # Button 0 - Horizontal Slider Only
 
             nameChar = self.randomNameChar(sliderNames)
-            self.initializationString = (horizontalSlider + ':' + nameChar + '?')
+            self.initializationString += (horizontalSlider + ':' + nameChar + '?')
             
             print(self.initializationString)
             # Button 1 - Vertical Slider or Switch
@@ -171,14 +173,15 @@ class Server(LineReceiver):
         print("Slider: " + str(sliderNames))
         print("Press: " + str(pressNames))
         print(self.initializationString)
-        self.sendLine(self.gridNumber + '%' + self.initializationString)
+        self.sendLine(self.initializationString)
 
 
     def connectionMade(self):
 
-        print("Successfully connected with Player " + str(self.numPlayer))
         print("Current Players List: " + str(self.factory.players))
-        self.sendLine("You are Player " + str(self.numPlayer))
+        if self.factory.connections == 2:
+            for player in self.factory.players:
+                player.sendLine("Ready")
         # Initialization of Grid/Buttons
 
 
@@ -187,29 +190,76 @@ class Server(LineReceiver):
         if self.factory.connections > 0:
             self.factory.connections -= 1
             self.factory.players.remove(self)
-            print("The connection for Player " + str(self.numPlayer) + " was lost. "
-                  + str(self.factory.connections) + " connection(s) remain.")
+            print("The connection for a player was lost " + str(self.factory.connections) + " connection(s) remain.")
+            for player in self.factory.players:
+                player.sendLine("Not Ready")
+
+    def initPlayerNum(self):
+        initPlayer = 0
+        for player in self.factory.players:
+            player.sendLine(str(initPlayer))
+            player.numPlayer = initPlayer
+            initPlayer += 1
 
     def shareGrid(self):
+        print ("I am Player " + str(self.numPlayer))
         self.initializeGrid()
+        print("Initialized Player " + str(self.numPlayer))
         for player in self.factory.players:
             if player is not self:
+                print("initializing player " + str(player.numPlayer) + " With Player " + str(self.numPlayer))
                 player.sendLine(self.initializationString)
+
+        self.factory.numSent += 1
+        self.state = "Game"
+        if self.factory.numSent == self.factory.connections:
+            for player in self.factory.players:
+                player.sendLine("END")
 
 
     def lineReceived(self, line):
 
-        print ("YO")
-        """
+        print(line)
         if self.state is 'startGame':
-            self.readyStart = line
-            readyCheck = 0
             for player in self.factory.players:
-                if player.readyStart is '1':
+                if player is not self:
+                    player.sendLine(line)
+            readyCheck = 0
+            if line is '1':
+                self.readyStart = 1
+            else:
+                self.readyStart = 0
+            for player in self.factory.players:
+                if player.readyStart is 1:
                     readyCheck += 1
-            if readyCheck == self.factory.connections and self.factory.connections >= 1: # change to > 1 after test
-                self.initializeGrid()
-        """
+            if readyCheck == self.factory.connections and self.factory.connections > 1:  # change to > 1 after test
+                print("Players Ready!")
+                for player in self.factory.players:
+                    player.sendLine("Players Ready")
+                self.initPlayerNum()
+                for player in self.factory.players:
+                    player.shareGrid()
+
+        elif self.state is 'Game':
+            print("server in Game state")
+
+            print("The line is " + line)
+            for player in self.factory.players:
+                if player is not self:
+                    player.sendLine(line)
+            """
+            if parsed_line[0] == "c":
+
+                print ("sending line 1 over: " + parsed_line[1])
+                for player in self.factory.players:
+                    if player is not self:
+                        player.clearLineBuffer()
+                        player.transport.write("0")
+
+            else: # parsed_line[1] == " "
+                print("index 0 is not 'c'")
+            """
+
 
 
 
@@ -223,20 +273,21 @@ class ServerFactory(Factory):
 
         self.players = []
         self.connections = 0
-
+        self.numSent = 0
         print("Number of Connections: " + str(self.connections))
 
     def buildProtocol(self, addr):
 
-        if self.connections <= 2:
+        if self.connections < 2:
 
             self.connections += 1
             print("Number of Connections: " + str(self.connections))
+            return Server(self)
 
         else:
             print("2 Players Max! Not allowing anymore connections")
 
-        return Server(self)
+
 
 
 try:
