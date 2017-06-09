@@ -49,13 +49,13 @@ public class Boat : MonoBehaviour {
         }
 
         gameObject.transform.position = new Vector3(newLocation, y, z);
-        if(x_change == 10)
+        if(x_change >= 10)
         {
             //load level for winning
             Debug.Log("won!");
             SceneManager.LoadScene("Victory");
         }
-        else if (x_change == -10)
+        else if (x_change <= -10)
         {
             // load level for losing
             Debug.Log("lost!");
